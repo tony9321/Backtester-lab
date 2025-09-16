@@ -1,0 +1,37 @@
+# Build artifacts
+build/
+*.o
+*.a
+*.so
+*.dylib
+
+# Environment and secrets
+.env
+*.key
+*.secret
+
+# Data files (exclude actual data, not source code)
+/data/
+*.csv
+*.json
+*.jsonl
+!config/*.json
+
+# Logs
+*.log
+logs/
+
+# IDE files
+.vscode/settings.json
+.vscode/launch.json
+.clangd/
+compile_commands.json
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.swp
+*~
