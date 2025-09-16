@@ -13,16 +13,17 @@ void BacktestEngine::calculate_final_metrics(double final_price) {
     // Calculate total return
     metrics_.total_return_pct = ((metrics_.ending_capital - metrics_.starting_capital) / metrics_.starting_capital) * 100.0;
     
-    // Analyze trades
-    metrics_.total_trades = 0;
+    // Analyze trades - count all individual transactions
+    metrics_.total_trades = portfolio_.trade_history.size();
     metrics_.winning_trades = 0;
     metrics_.losing_trades = 0;
     double total_wins = 0.0;
     double total_losses = 0.0;
     
-    // Pair up BUY/SELL trades to calculate profits/losses
+    // Calculate P&L from complete trading cycles (BUY->SELL pairs)
     double current_position_cost = 0.0;
     int current_shares = 0;
+    int completed_trades = 0;
     
     for (const auto& trade : portfolio_.trade_history) {
         if (trade.action == "BUY") {
@@ -33,7 +34,7 @@ void BacktestEngine::calculate_final_metrics(double final_price) {
             double avg_cost_per_share = current_position_cost / current_shares;
             double profit_loss = (trade.price - avg_cost_per_share) * trade.shares;
             
-            metrics_.total_trades++;
+            completed_trades++;
             
             if (profit_loss > 0) {
                 metrics_.winning_trades++;
@@ -43,15 +44,16 @@ void BacktestEngine::calculate_final_metrics(double final_price) {
                 total_losses += std::abs(profit_loss);
             }
             
-            // Update position
-            current_position_cost -= (avg_cost_per_share * trade.shares);
+            // Update position - proportionally reduce cost basis
+            double shares_sold_ratio = static_cast<double>(trade.shares) / current_shares;
+            current_position_cost -= (current_position_cost * shares_sold_ratio);
             current_shares -= trade.shares;
         }
     }
     
     // Calculate trade statistics
-    if (metrics_.total_trades > 0) {
-        metrics_.win_rate_pct = (static_cast<double>(metrics_.winning_trades) / metrics_.total_trades) * 100.0;
+    if (completed_trades > 0) {
+        metrics_.win_rate_pct = (static_cast<double>(metrics_.winning_trades) / completed_trades) * 100.0;
         metrics_.avg_win = (metrics_.winning_trades > 0) ? (total_wins / metrics_.winning_trades) : 0.0;
         metrics_.avg_loss = (metrics_.losing_trades > 0) ? (total_losses / metrics_.losing_trades) : 0.0;
         metrics_.profit_factor = (total_losses > 0) ? (total_wins / total_losses) : 0.0;
@@ -79,39 +81,40 @@ void BacktestEngine::calculate_final_metrics(double final_price) {
 }
 
 void BacktestEngine::print_results() const {
-    std::cout << "\n" << std::string(60, '=') << std::endl;
-    std::cout << "📊 PROFESSIONAL BACKTEST RESULTS 📊" << std::endl;
-    std::cout << std::string(60, '=') << std::endl;
+    std::cout << "\n" << std::string(50, '=') << std::endl;
+    std::cout << "BACKTEST RESULTS" << std::endl;
+    std::cout << std::string(50, '=') << std::endl;
     
     // Portfolio Summary
-    std::cout << "\n💰 PORTFOLIO PERFORMANCE:" << std::endl;
+    std::cout << "\nPORTFOLIO PERFORMANCE:" << std::endl;
     std::cout << "Starting Capital: $" << std::fixed << std::setprecision(2) << metrics_.starting_capital << std::endl;
     std::cout << "Ending Capital:   $" << std::fixed << std::setprecision(2) << metrics_.ending_capital << std::endl;
     std::cout << "Total Return:     " << std::fixed << std::setprecision(2) << metrics_.total_return_pct << "%" << std::endl;
     
     if (metrics_.total_return_pct > 0) {
-        std::cout << "✅ PROFITABLE STRATEGY" << std::endl;
+        std::cout << "Status: PROFITABLE" << std::endl;
     } else {
-        std::cout << "❌ LOSING STRATEGY" << std::endl;
+        std::cout << "Status: UNPROFITABLE" << std::endl;
     }
     
     // Risk Metrics
-    std::cout << "\n⚠️ RISK METRICS:" << std::endl;
+    std::cout << "\nRISK METRICS:" << std::endl;
     std::cout << "Max Drawdown:     " << std::fixed << std::setprecision(2) << metrics_.max_drawdown_pct << "%" << std::endl;
     std::cout << "Sharpe Ratio:     " << std::fixed << std::setprecision(2) << metrics_.sharpe_ratio << std::endl;
     
     // Trade Statistics
-    std::cout << "\n📈 TRADE ANALYSIS:" << std::endl;
-    std::cout << "Total Trades:     " << metrics_.total_trades << std::endl;
-    std::cout << "Winning Trades:   " << metrics_.winning_trades << std::endl;
-    std::cout << "Losing Trades:    " << metrics_.losing_trades << std::endl;
+    std::cout << "\nTRADE ANALYSIS:" << std::endl;
+    std::cout << "Total Transactions: " << metrics_.total_trades << std::endl;
+    std::cout << "Completed Cycles: " << (metrics_.winning_trades + metrics_.losing_trades) << std::endl;
+    std::cout << "Winning Cycles:   " << metrics_.winning_trades << std::endl;
+    std::cout << "Losing Cycles:    " << metrics_.losing_trades << std::endl;
     std::cout << "Win Rate:         " << std::fixed << std::setprecision(1) << metrics_.win_rate_pct << "%" << std::endl;
     std::cout << "Average Win:      $" << std::fixed << std::setprecision(2) << metrics_.avg_win << std::endl;
     std::cout << "Average Loss:     $" << std::fixed << std::setprecision(2) << metrics_.avg_loss << std::endl;
     std::cout << "Profit Factor:    " << std::fixed << std::setprecision(2) << metrics_.profit_factor << std::endl;
     
     // Current Position
-    std::cout << "\n📋 CURRENT POSITION:" << std::endl;
+    std::cout << "\nCURRENT POSITION:" << std::endl;
     std::cout << "Cash:             $" << std::fixed << std::setprecision(2) << portfolio_.cash << std::endl;
     std::cout << "Shares Held:      " << portfolio_.shares_held << std::endl;
     std::cout << "Position Value:   $" << std::fixed << std::setprecision(2) << metrics_.current_position_value << std::endl;
@@ -119,12 +122,12 @@ void BacktestEngine::print_results() const {
 
 void BacktestEngine::print_trade_summary() const {
     if (portfolio_.trade_history.empty()) {
-        std::cout << "\n📋 No trades executed during backtest period." << std::endl;
+        std::cout << "\nNo trades executed during backtest period." << std::endl;
         return;
     }
     
-    std::cout << "\n📋 RECENT TRADES:" << std::endl;
-    std::cout << std::string(80, '-') << std::endl;
+    std::cout << "\nRECENT TRADES:" << std::endl;
+    std::cout << std::string(60, '-') << std::endl;
     
     // Show last 10 trades
     int start_idx = std::max(0, static_cast<int>(portfolio_.trade_history.size()) - 10);

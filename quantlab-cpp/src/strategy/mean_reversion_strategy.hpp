@@ -108,61 +108,19 @@ public:
     
     // ENHANCED: Multi-minute aggregated data loading for extended analysis
     void load_aggregated_historical_data(const std::string& symbol, const std::string& timeframe, int total_days, int days_per_call = 1) {
-        std::cout << "\n🏛️ PROFESSIONAL MULTI-MINUTE DATA AGGREGATION SYSTEM" << std::endl;
-        std::cout << "📊 Loading " << total_days << " days (" << (total_days/30) << "+ months) of " << symbol << " data" << std::endl;
-        std::cout << "💡 Rate-limited strategy: " << total_days << " calls across multiple minutes" << std::endl;
-        std::cout << "⏱️ Estimated time: ~" << ((total_days + 9499) / 9500) << " minute(s) for comprehensive dataset" << std::endl;
-        
-        // Use enhanced 60-call aggregated loading method
+        // Load historical data using aggregated method
         historical_bars_ = market_data_->get_aggregated_historical_bars(symbol, timeframe, total_days, days_per_call);
         
-        std::cout << "\n🎯 AGGREGATION ANALYSIS:" << std::endl;
-        std::cout << "✅ Successfully collected " << historical_bars_.size() << " bars" << std::endl;
-        std::cout << "� This is " << historical_bars_.size() << "x more data than single API call!" << std::endl;
-        std::cout << "📈 Coverage: " << (historical_bars_.size() * 100 / total_days) << "% of target dataset" << std::endl;
-        
-        // Feed all aggregated bars to indicators for comprehensive warm-up
+        // Initialize indicators with historical data
         int bars_processed = 0;
-        std::cout << "\n🔧 WARMING UP INDICATORS:" << std::endl;
-        
-        // DEBUG: Show first few bars to verify data variety
-        std::cout << "📊 FIRST 5 BARS ANALYSIS:" << std::endl;
         for(const auto& bar : historical_bars_) {
             ema_.update(bar.close);
             rsi_.update(bar.close);
             bb_.update(bar.close);
             bars_processed++;
-            
-            // Show detailed info for first 5 bars
-            if (bars_processed <= 5) {
-                std::cout << "Bar " << bars_processed << ": Close=$" << bar.close 
-                          << " Open=$" << bar.open << " High=$" << bar.high 
-                          << " Low=$" << bar.low << " Vol=" << bar.volume << std::endl;
-            }
         }
         
-        // DEBUG: Show price range to verify data diversity
-        if (!historical_bars_.empty()) {
-            double min_price = historical_bars_[0].close;
-            double max_price = historical_bars_[0].close;
-            double total_volume = 0;
-            
-            for(const auto& bar : historical_bars_) {
-                min_price = std::min(min_price, bar.close);
-                max_price = std::max(max_price, bar.close);
-                total_volume += bar.volume;
-            }
-            
-            std::cout << "📈 PRICE RANGE ANALYSIS:" << std::endl;
-            std::cout << "Min Price: $" << min_price << " | Max Price: $" << max_price << std::endl;
-            std::cout << "Price Range: $" << (max_price - min_price) << " (" 
-                      << ((max_price - min_price) / min_price * 100) << "%)" << std::endl;
-            std::cout << "Avg Volume: " << (total_volume / historical_bars_.size()) << std::endl;
-        }
-        
-        std::cout << "✅ Warmed up all indicators with " << bars_processed << " comprehensive data points" << std::endl;
-        std::cout << "🏆 Ready for institutional-grade backtesting with " << total_days << "-day historical context!" << std::endl;
-        std::cout << "💰 This provides deep market analysis for professional trading decisions" << std::endl;
+        // Strategy initialized with historical data
     }
     
     // INSTITUTIONAL-GRADE WEIGHTED CONFIDENCE SYSTEM
@@ -301,11 +259,11 @@ public:
         std::vector<StrategyResult> results;
         
         if (historical_bars_.empty()) {
-            std::cout << "⚠️ No historical data available for backtesting!" << std::endl;
+            std::cout << "Error: No historical data available for backtesting!" << std::endl;
             return results;
         }
         
-        std::cout << "🔄 Running professional backtest on " << historical_bars_.size() << " data points..." << std::endl;
+        std::cout << "Running backtest on " << historical_bars_.size() << " data points..." << std::endl;
         
         // Reset indicators for clean backtest
         ema_.reset();
@@ -341,14 +299,7 @@ public:
             double confidence = calculate_confidence(bar.close, ema_value, rsi_value, bb_upper, bb_middle, bb_lower);
             double min_confidence_threshold = 0.65;
             
-            // DEBUG: Show detailed analysis for key data points
-            if (i <= warmup_periods + 5 || i % 10 == 0) { // Show first few and every 10th
-                std::cout << "📊 Bar " << i << ": Price=$" << bar.close 
-                          << " RSI=" << rsi_value << " EMA=$" << ema_value 
-                          << " Confidence=" << (confidence * 100) << "%" << std::endl;
-                std::cout << "   BB: Upper=$" << bb_upper << " Mid=$" << bb_middle 
-                          << " Lower=$" << bb_lower << std::endl;
-            }
+            // Analyze indicators for signal generation
             
             StrategyResult result;
             result.current_price = bar.close;
@@ -368,7 +319,7 @@ public:
             bool price_below_ema = bar.close < ema_value;
             bool high_confidence = confidence >= min_confidence_threshold;
             
-            // FIXED LOGIC: More realistic mean reversion conditions
+            // FIXED LOGIC: Simple mean reversion conditions matching generate_signal method
             if (rsi_oversold && high_confidence) {
                 result.signal = Signal::BUY;
                 result.reason = "BUY: RSI=" + std::to_string((int)rsi_value) + " (oversold<30), High confidence=" + std::to_string((int)(confidence*100)) + "%";
@@ -380,49 +331,33 @@ public:
             else {
                 result.signal = Signal::HOLD;
                 
-                // DEBUG: Show why we're not trading
-                std::string debug_reason = "HOLD: ";
-                if (!high_confidence) debug_reason += "LowConf(" + std::to_string((int)(confidence*100)) + "%) ";
-                if (rsi_overbought && !price_above_bb_upper) debug_reason += "RSI>70ButNotAboveBB ";
-                if (rsi_overbought && !price_below_ema) debug_reason += "RSI>70ButNotBelowEMA ";
-                if (rsi_oversold && !price_below_bb_lower) debug_reason += "RSI<30ButNotBelowBB ";
-                if (rsi_oversold && !price_above_ema) debug_reason += "RSI<30ButNotAboveEMA ";
-                if (!rsi_oversold && !rsi_overbought) debug_reason += "RSIInRange(" + std::to_string((int)rsi_value) + ") ";
-                
-                result.reason = debug_reason;
-                
-                // Show detailed analysis for high confidence cases that didn't trade
-                if (high_confidence && (i <= warmup_periods + 5 || i % 10 == 0)) {
-                    std::cout << "🔍 Bar " << i << " HIGH CONFIDENCE BUT NO TRADE:" << std::endl;
-                    std::cout << "   RSI=" << rsi_value << " (oversold<30=" << rsi_oversold << ", overbought>70=" << rsi_overbought << ")" << std::endl;
-                    std::cout << "   Price=$" << bar.close << " vs EMA=$" << ema_value << " (above=" << price_above_ema << ")" << std::endl;
-                    std::cout << "   BB: Upper=$" << bb_upper << " Lower=$" << bb_lower << " (above_upper=" << price_above_bb_upper << ", below_lower=" << price_below_bb_lower << ")" << std::endl;
-                }
+                result.reason = "HOLD";
             }
             
             results.push_back(result);
         }
         
-        std::cout << "✅ Backtest completed! Generated " << results.size() << " signals." << std::endl;
+        // Return backtest results
         return results;
     }
     
-    // Helper method to print strategy results
+    // Helper method to print strategy results (production-ready)
     void print_signal(const StrategyResult& result) {
         std::string signal_str;
         switch(result.signal) {
-            case Signal::BUY:  signal_str = "🟢 BUY";  break;
-            case Signal::SELL: signal_str = "🔴 SELL"; break;
-            case Signal::HOLD: signal_str = "🟡 HOLD"; break;
-            case Signal::NONE: signal_str = "⚪ NONE"; break;
+            case Signal::BUY:  signal_str = "BUY";  break;
+            case Signal::SELL: signal_str = "SELL"; break;
+            case Signal::HOLD: signal_str = "HOLD"; break;
+            case Signal::NONE: signal_str = "NONE"; break;
         }
         
-        std::cout << signal_str << " | Confidence: " << (result.confidence * 100) << "% | " 
-                  << result.reason << std::endl;
-        std::cout << "Price: $" << result.current_price 
-                  << " | EMA: " << result.ema_value 
+        std::cout << signal_str << " | Price: $" << result.current_price 
                   << " | RSI: " << result.rsi_value 
-                  << " | BB: [" << result.bb_lower << ", " << result.bb_middle << ", " << result.bb_upper << "]" << std::endl;
+                  << " | Confidence: " << (result.confidence * 100) << "%";
+        if (result.signal != Signal::HOLD) {
+            std::cout << " | " << result.reason;
+        }
+        std::cout << std::endl;
     }
 };
 

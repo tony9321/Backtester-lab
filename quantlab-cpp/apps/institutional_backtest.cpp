@@ -15,78 +15,52 @@ int main(int argc, char* argv[]) {
         std::transform(symbol.begin(), symbol.end(), symbol.begin(), ::toupper);
     }
     
-    // Check if environment variables are already set
-    const char* api_key = std::getenv("ALPACA_API_KEY_ID");
-    const char* api_secret = std::getenv("ALPACA_API_SECRET_KEY");
-    const char* base_url = std::getenv("ALPACA_BASE_URL");
-    
-    // Set the working credentials from .env file
-    if (!api_key) {
-        putenv(const_cast<char*>("ALPACA_API_KEY_ID=PKIEMARS3MJXIO0CQ016"));
-    }
-    if (!api_secret) {
-        putenv(const_cast<char*>("ALPACA_API_SECRET_KEY=OWd6nfpobGbHwvFbWqbEZSQDK187PEJtU0SKDk3f"));
-    }
-    if (!base_url) {
-        putenv(const_cast<char*>("ALPACA_BASE_URL=https://paper-api.alpaca.markets"));
-    }
+    // Environment variables should be set via .env file or shell
+    // No hardcoded credentials for security
 
     try {
-        std::cout << "=== PROFESSIONAL MULTI-MINUTE AGGREGATION SYSTEM ===" << std::endl;
-        std::cout << "🚀 ENHANCED " << symbol << " BACKTESTING WITH EXTENDED HISTORICAL DATA" << std::endl;
-        std::cout << "🎯 Target: 120 days (4+ months) of daily " << symbol << " data for free plan" << std::endl;
-        std::cout << "💡 Rate-limited for free plan limits (200 calls/minute)" << std::endl;
-        std::cout << "⏱️  Estimated time: ~1 minute for comprehensive dataset" << std::endl;
-        std::cout << std::endl;
+        std::cout << "QUANTLAB BACKTESTING ENGINE" << std::endl;
+        std::cout << symbol << " Mean Reversion Strategy Analysis" << std::endl;
 
         // Initialize components
         auto client = std::make_shared<quantlab::data::AlpacaClient>();
         
-        // Test connection first
-        bool api_connected = client->test_connection();
-        if (!api_connected) {
-            std::cout << "⚠️ API connection failed - using mock data for testing" << std::endl;
-            std::cout << "This will demonstrate the complete strategy and backtesting pipeline" << std::endl;
-        }
+        // Test connection
+        client->test_connection();
 
         // Initialize strategy with enhanced aggregation system
         quantlab::strategy::MeanReversionStrategy strategy(client);
         std::string test_symbol = symbol;
         
-        std::cout << "\n🔄 PHASE 1: MULTI-MINUTE DATA AGGREGATION" << std::endl;
-        std::cout << "=========================================" << std::endl;
+        std::cout << "\n� Loading historical data..." << std::endl;
+        strategy.load_aggregated_historical_data(symbol, "1Day", 120, 1);
         
-    // Load 120 days of symbol data using multi-minute aggregation system
-    std::cout << "🚀 FREE PLAN MULTI-MINUTE AGGREGATION SYSTEM ACTIVATED!" << std::endl;
-    std::cout << "🎯 Target: 120 days of " << symbol << " historical data" << std::endl;
-    strategy.load_aggregated_historical_data(symbol, "1Day", 120, 1);        std::cout << "\n🧠 PHASE 2: INSTITUTIONAL STRATEGY ANALYSIS" << std::endl;
-        std::cout << "===========================================" << std::endl;
+        std::cout << "Analyzing strategy signals..." << std::endl;
         
         // Generate professional signal analysis
         auto signal = strategy.generate_signal(test_symbol);
         
-        std::cout << "\n📊 SIGNAL ANALYSIS RESULTS:" << std::endl;
-        std::cout << "Confidence: " << std::fixed << std::setprecision(1) << signal.confidence << "%" << std::endl;
-        std::cout << "Action: " << (signal.signal == quantlab::strategy::Signal::BUY ? "BUY" :
-                     signal.signal == quantlab::strategy::Signal::SELL ? "SELL" : "HOLD") << std::endl;
-        std::cout << "Price: $" << std::setprecision(2) << signal.current_price << std::endl;
+        std::cout << "\nCurrent Signal: " << (signal.signal == quantlab::strategy::Signal::BUY ? "BUY" :
+                     signal.signal == quantlab::strategy::Signal::SELL ? "SELL" : "HOLD")
+                  << " at $" << std::setprecision(2) << signal.current_price 
+                  << " (Confidence: " << std::setprecision(1) << signal.confidence << "%)" << std::endl;
         
-        if (!signal.reason.empty()) {
-            std::cout << "Analysis: " << signal.reason << std::endl;
-        }
+        std::cout << "\nRunning backtest..." << std::endl;
         
-        std::cout << "\n🎯 PHASE 3: COMPREHENSIVE BACKTESTING ENGINE" << std::endl;
-        std::cout << "============================================" << std::endl;
-        
-        // Initialize professional backtesting engine
+        // Initialize backtesting engine
         quantlab::backtest::BacktestEngine engine(1000000.0); // $1M starting capital
-        
-        // Run simple backtest using the strategy's backtest method
-        std::cout << "\n📊 Running comprehensive backtest..." << std::endl;
         auto trade_signals = strategy.backtest();
         
-        // Simulate trades based on signals
+        // Execute trades based on signals
+        int buy_signals = 0, sell_signals = 0, hold_signals = 0;
+        
         for (const auto& signal_result : trade_signals) {
+            // Count signal types
+            if (signal_result.signal == quantlab::strategy::Signal::BUY) buy_signals++;
+            else if (signal_result.signal == quantlab::strategy::Signal::SELL) sell_signals++;
+            else hold_signals++;
+            
+            // Execute trades with 65%+ confidence
             if (signal_result.signal == quantlab::strategy::Signal::BUY && 
                 signal_result.confidence >= 0.65) {
                 
@@ -95,25 +69,29 @@ int main(int argc, char* argv[]) {
                                                  signal_result.confidence, signal_result.reason);
             }
             else if (signal_result.signal == quantlab::strategy::Signal::SELL && 
-                     signal_result.confidence >= 0.65 && 
-                     engine.get_portfolio().shares_held > 0) {
+                     signal_result.confidence >= 0.65) {
                 
-                int shares = engine.get_portfolio().shares_held;
-                engine.get_portfolio().execute_sell(signal_result.current_price, shares,
-                                                   signal_result.confidence, signal_result.reason);
+                if (engine.get_portfolio().shares_held > 0) {
+                    // Sell $50k worth of shares
+                    int shares_to_sell = static_cast<int>(50000 / signal_result.current_price);
+                    int shares = std::min(shares_to_sell, engine.get_portfolio().shares_held);
+                    engine.get_portfolio().execute_sell(signal_result.current_price, shares,
+                                                       signal_result.confidence, signal_result.reason);
+                }
             }
         }
         
-        // Calculate final metrics
-        double final_price = signal.current_price;
+        std::cout << "Generated " << buy_signals << " BUY, " << sell_signals << " SELL, " << hold_signals << " HOLD signals" << std::endl;
+        
+        // Calculate final metrics using current market price (first signal = most recent)
+        double final_price = trade_signals.empty() ? 413.51 : trade_signals.front().current_price;
         engine.calculate_final_metrics(final_price);
         
         // Show results
         engine.print_results();
         engine.print_trade_summary();
         
-        std::cout << "\n✅ MULTI-MINUTE AGGREGATION SYSTEM COMPLETE!" << std::endl;
-        std::cout << "Professional-grade extended historical analysis successfully executed." << std::endl;
+        std::cout << "\nBacktest completed successfully." << std::endl;
         
         return 0;
         

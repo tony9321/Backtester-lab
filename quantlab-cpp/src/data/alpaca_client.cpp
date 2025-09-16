@@ -5,6 +5,7 @@
 #include <thread>
 #include <iomanip>
 #include <sstream>
+#include <algorithm>
 
 namespace quantlab::data {
 
@@ -15,25 +16,17 @@ std::vector<quantlab::core::Bar> AlpacaClient::get_aggregated_historical_bars(
     int total_days,
     int days_per_call) {
     
-    std::cout << "🚀 FREE PLAN MULTI-MINUTE AGGREGATION SYSTEM ACTIVATED!" << std::endl;
-    std::cout << "🎯 Target: " << total_days << " days of " << symbol << " historical data" << std::endl;
-    std::cout << "💡 Strategy: Rate-limited calls for free plan (200/min limit)" << std::endl;
-    
-    // Calculate optimal batching strategy for FREE PLAN
-    const int MAX_CALLS_PER_MINUTE = 200; // Free plan limit is much lower (typically 200/min)
+    // Calculate rate limiting for API calls
+    const int MAX_CALLS_PER_MINUTE = 200; // Free plan limit
     int total_minutes = (total_days + MAX_CALLS_PER_MINUTE - 1) / MAX_CALLS_PER_MINUTE;
-    
-    std::cout << "📊 Optimization Analysis:" << std::endl;
-    std::cout << "   • Total calls needed: " << total_days << std::endl;
-    std::cout << "   • Calls per minute limit: " << MAX_CALLS_PER_MINUTE << std::endl;
-    std::cout << "   • Estimated duration: " << total_minutes << " minute(s)" << std::endl;
-    std::cout << "   • Each call = 1 daily bar = Professional institutional data" << std::endl;
     
     std::vector<quantlab::core::Bar> all_bars;
     int calls_in_current_minute = 0;
     auto minute_start = std::chrono::steady_clock::now();
     
-    for (int day_offset = 0; day_offset < total_days; ++day_offset) {
+    // Start from 15 days ago to avoid recent SIP data restrictions
+    int start_offset = 15;
+    for (int day_offset = start_offset; day_offset < total_days + start_offset; ++day_offset) {
         // Check if we need to wait for next minute
         if (calls_in_current_minute >= MAX_CALLS_PER_MINUTE) {
             auto now = std::chrono::steady_clock::now();
@@ -41,7 +34,6 @@ std::vector<quantlab::core::Bar> AlpacaClient::get_aggregated_historical_bars(
             
             if (elapsed < 60) {
                 int wait_time = 60 - elapsed;
-                std::cout << "⏰ Rate limit reached. Waiting " << wait_time << " seconds for next minute..." << std::endl;
                 std::this_thread::sleep_for(std::chrono::seconds(wait_time));
             }
             
@@ -58,25 +50,19 @@ std::vector<quantlab::core::Bar> AlpacaClient::get_aggregated_historical_bars(
         
         if (!daily_bars.empty()) {
             all_bars.insert(all_bars.end(), daily_bars.begin(), daily_bars.end());
-            std::cout << "📈 Day " << (day_offset + 1) << "/" << total_days 
-                      << " collected (" << daily_bars.size() << " bars)" << std::endl;
-        } else {
-            std::cout << "⚠️  Day " << (day_offset + 1) << "/" << total_days 
-                      << " - No data (weekend/holiday)" << std::endl;
         }
         
         calls_in_current_minute++;
-        
-        // Show progress every 50 calls
-        if ((day_offset + 1) % 50 == 0) {
-            std::cout << "�� Progress: " << (day_offset + 1) << "/" << total_days 
-                      << " days (" << std::fixed << std::setprecision(1) 
-                      << (100.0 * (day_offset + 1) / total_days) << "%)" << std::endl;
-        }
     }
     
-    std::cout << "✅ AGGREGATION COMPLETE!" << std::endl;
-    std::cout << "📊 Final Dataset: " << all_bars.size() << " bars across " << total_days << " day period" << std::endl;
+    // Debug: Show data collection summary
+    std::cout << "Collected " << all_bars.size() << " bars from " << total_days << " day period" << std::endl;
+    
+    // CRITICAL FIX: Reverse the data to be chronological (oldest first, newest last)
+    // Current order: newest -> oldest (wrong for backtesting)
+    // Required order: oldest -> newest (correct for backtesting)
+    std::reverse(all_bars.begin(), all_bars.end());
+    std::cout << "🔄 Data reordered chronologically (oldest to newest) for proper backtesting" << std::endl;
     
     return all_bars;
 }
@@ -122,14 +108,11 @@ std::string AlpacaClient::make_request(const std::string& endpoint, bool use_mar
 bool AlpacaClient::test_connection() {
     std::cout << "🔍 Testing Alpaca API connection..." << std::endl;
     
-    std::string response = make_request("/v2/account");
+    std::string response = make_request("/account", false);
     
     if (response.empty()) {
-        std::cout << "❌ Connection test failed!" << std::endl;
         return false;
     }
-    
-    std::cout << "✅ Connection successful!" << std::endl;
     return true;
 }
 
@@ -140,8 +123,7 @@ std::vector<quantlab::core::Bar> AlpacaClient::get_historical_bars(
     const std::string& start_date,
     const std::string& end_date) {
     
-    std::cout << "📊 Fetching " << symbol << " bars from " << start_date 
-              << " to " << end_date << " (" << timeframe << ")" << std::endl;
+    // Request historical bars for symbol
     
     // Build endpoint with proper date parameters (base URL already has /v2)
     std::string endpoint = "/stocks/" + symbol + "/bars?timeframe=" + timeframe;
@@ -157,7 +139,6 @@ std::vector<quantlab::core::Bar> AlpacaClient::get_historical_bars(
     std::string response = make_request(endpoint, true); // Use market data API
     
     if (response.empty()) {
-        std::cout << "❌ Failed to get historical data" << std::endl;
         return {};
     }
     
@@ -166,7 +147,6 @@ std::vector<quantlab::core::Bar> AlpacaClient::get_historical_bars(
         auto json_data = nlohmann::json::parse(response);
         
         if (!json_data.contains("bars") || json_data["bars"].empty()) {
-            std::cout << "⚠️  No bars found for " << symbol << " on " << start_date << std::endl;
             return {};
         }
         
@@ -184,23 +164,7 @@ std::vector<quantlab::core::Bar> AlpacaClient::get_historical_bars(
             bars.push_back(bar);
         }
         
-        std::cout << "✅ Retrieved " << bars.size() << " bars for " << symbol << std::endl;
-        
-        // Show price range for verification
-        if (!bars.empty()) {
-            double min_price = bars[0].low;
-            double max_price = bars[0].high;
-            
-            for (const auto& bar : bars) {
-                min_price = std::min(min_price, bar.low);
-                max_price = std::max(max_price, bar.high);
-            }
-            
-            std::cout << "💰 Price range: $" << std::fixed << std::setprecision(2) 
-                      << min_price << " - $" << max_price 
-                      << " (Range: " << std::setprecision(1) 
-                      << ((max_price - min_price) / min_price * 100) << "%)" << std::endl;
-        }
+        // Return the bars
         
         return bars;
         
@@ -213,7 +177,7 @@ std::vector<quantlab::core::Bar> AlpacaClient::get_historical_bars(
 
 // METHOD 3: Get Latest Quote
 std::optional<quantlab::core::Quote> AlpacaClient::get_latest_quote(const std::string& symbol) {
-    std::cout << "💰 Getting latest quote for " << symbol << std::endl;
+    // Get latest quote for symbol
     
     std::string endpoint = "/stocks/" + symbol + "/quotes/latest";
     std::string response = make_request(endpoint, true);
@@ -226,7 +190,6 @@ std::optional<quantlab::core::Quote> AlpacaClient::get_latest_quote(const std::s
         auto json_data = nlohmann::json::parse(response);
         
         if (!json_data.contains("quote")) {
-            std::cout << "❌ No quote data found" << std::endl;
             return std::nullopt;
         }
         
@@ -240,8 +203,7 @@ std::optional<quantlab::core::Quote> AlpacaClient::get_latest_quote(const std::s
         quote.ask_size = quote_data["as"];
         quote.timestamp = quote_data["t"];
         
-        std::cout << "✅ Quote: Bid $" << quote.bid_price 
-                  << " Ask $" << quote.ask_price << std::endl;
+        // Return the quote data
         
         return quote;
         
