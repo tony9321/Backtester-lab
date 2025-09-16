@@ -14,6 +14,12 @@ int main(int argc, char* argv[]) {
         symbol = argv[1];
         std::transform(symbol.begin(), symbol.end(), symbol.begin(), ::toupper);
     }
+    int days=120; //default
+    if(argc>2)
+    {
+        days=std::atoi(argv[2]);
+        if(days<=30) days=120; //reset to default if invalid
+    }
     
     // Environment variables should be set via .env file or shell
     // No hardcoded credentials for security
@@ -33,7 +39,7 @@ int main(int argc, char* argv[]) {
         std::string test_symbol = symbol;
         
         std::cout << "\n� Loading historical data..." << std::endl;
-        strategy.load_aggregated_historical_data(symbol, "1Day", 120, 1);
+        strategy.load_aggregated_historical_data(symbol, "1Day", days, 1);
         
         std::cout << "Analyzing strategy signals..." << std::endl;
         
