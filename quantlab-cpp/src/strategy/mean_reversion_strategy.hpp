@@ -68,6 +68,7 @@ private:
     // Strategy parameters
     int rsi_oversold_threshold_;   // Default: 30
     int rsi_overbought_threshold_; // Default: 70
+    double confidence_threshold_;  // Default: 0.65
     
     // Market data client
     quantlab::data::AlpacaClient* market_data_;
@@ -80,15 +81,17 @@ public:
     MeanReversionStrategy(std::shared_ptr<quantlab::data::AlpacaClient> client)
         : ema_(20), rsi_(14), bb_(20, 2.0), 
           rsi_oversold_threshold_(30), rsi_overbought_threshold_(70), 
+          confidence_threshold_(0.65),
           market_data_(client.get()), historical_bars_() {
     }
     
     // Full constructor for custom parameters
     MeanReversionStrategy(int ema_period, int rsi_period, int bb_period, double bb_std_dev,
                          quantlab::data::AlpacaClient* client,
-                         int rsi_oversold = 30, int rsi_overbought = 70) 
+                         int rsi_oversold = 30, int rsi_overbought = 70, double confidence = 0.65) 
         : ema_(ema_period), rsi_(rsi_period), bb_(bb_period, bb_std_dev), 
           rsi_oversold_threshold_(rsi_oversold), rsi_overbought_threshold_(rsi_overbought), 
+          confidence_threshold_(confidence),
           market_data_(client), historical_bars_() {
     }
     
@@ -103,6 +106,13 @@ public:
             ema_.update(bar.close);
             rsi_.update(bar.close);
             bb_.update(bar.close);
+        }
+    }
+    
+    // Set confidence threshold for trading signals
+    void set_confidence_threshold(double threshold) {
+        if (threshold > 0.0 && threshold <= 1.0) {
+            confidence_threshold_ = threshold;
         }
     }
     
@@ -227,17 +237,17 @@ public:
         double confidence = calculate_confidence(latest_price, ema_value, rsi_value, bb_upper, bb_middle, bb_lower);
         
         // INSTITUTIONAL SIGNAL LOGIC with CONFIDENCE THRESHOLDS
-        double min_confidence_threshold = 0.65;  // Professional minimum confidence
+        // Use the configurable confidence threshold
         
         // SIMPLIFIED MEAN REVERSION: Focus on RSI extremes with high confidence
-        if(rsi_value < rsi_oversold_threshold_ && confidence >= min_confidence_threshold) {
+        if(rsi_value < rsi_oversold_threshold_ && confidence >= confidence_threshold_) {
             result.signal = Signal::BUY;
             result.confidence = confidence;
             result.reason = "INSTITUTIONAL BUY: RSI=" + std::to_string((int)rsi_value) + 
                            " (oversold<30). Confidence=" + 
                            std::to_string((int)(confidence*100)) + "%";
         }
-        else if(rsi_value > rsi_overbought_threshold_ && confidence >= min_confidence_threshold) {
+        else if(rsi_value > rsi_overbought_threshold_ && confidence >= confidence_threshold_) {
             result.signal = Signal::SELL;
             result.confidence = confidence;
             result.reason = "INSTITUTIONAL SELL: RSI=" + std::to_string((int)rsi_value) + 
@@ -248,7 +258,7 @@ public:
             result.signal = Signal::HOLD;
             result.confidence = confidence;
             result.reason = "HOLD: Confidence=" + std::to_string((int)(confidence*100)) + 
-                           "% (need >65% for signal)";
+                           "% (need >" + std::to_string((int)(confidence_threshold_*100)) + "% for signal)";
         }
         
         return result;
@@ -297,7 +307,6 @@ public:
             double bb_lower = bb_result.lower_band;
             
             double confidence = calculate_confidence(bar.close, ema_value, rsi_value, bb_upper, bb_middle, bb_lower);
-            double min_confidence_threshold = 0.65;
             
             // Analyze indicators for signal generation
             
@@ -317,7 +326,7 @@ public:
             bool price_above_bb_upper = bar.close > bb_upper;
             bool price_above_ema = bar.close > ema_value;
             bool price_below_ema = bar.close < ema_value;
-            bool high_confidence = confidence >= min_confidence_threshold;
+            bool high_confidence = confidence >= confidence_threshold_;
             
             // FIXED LOGIC: Simple mean reversion conditions matching generate_signal method
             if (rsi_oversold && high_confidence) {

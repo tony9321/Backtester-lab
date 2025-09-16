@@ -20,13 +20,19 @@ int main(int argc, char* argv[]) {
         days=std::atoi(argv[2]);
         if(days<=30) days=120; //reset to default if invalid
     }
-    
+    double confidence_threshold = 0.65; // 65% confidence threshold for trades
+    if(argc>3)
+    {
+        confidence_threshold=std::atof(argv[3]);
+        if(confidence_threshold<=0.0 || confidence_threshold>1.0) confidence_threshold=0.65; //reset to default if invalid
+    }
     // Environment variables should be set via .env file or shell
     // No hardcoded credentials for security
 
     try {
         std::cout << "QUANTLAB BACKTESTING ENGINE" << std::endl;
         std::cout << symbol << " Mean Reversion Strategy Analysis" << std::endl;
+        std::cout << "Days: " << days << " | Confidence Threshold: " << (confidence_threshold * 100) << "%" << std::endl;
 
         // Initialize components
         auto client = std::make_shared<quantlab::data::AlpacaClient>();
@@ -36,6 +42,7 @@ int main(int argc, char* argv[]) {
 
         // Initialize strategy with enhanced aggregation system
         quantlab::strategy::MeanReversionStrategy strategy(client);
+        strategy.set_confidence_threshold(confidence_threshold);
         std::string test_symbol = symbol;
         
         std::cout << "\n� Loading historical data..." << std::endl;
@@ -66,16 +73,16 @@ int main(int argc, char* argv[]) {
             else if (signal_result.signal == quantlab::strategy::Signal::SELL) sell_signals++;
             else hold_signals++;
             
-            // Execute trades with 65%+ confidence
+            // Execute trades with configurable confidence threshold
             if (signal_result.signal == quantlab::strategy::Signal::BUY && 
-                signal_result.confidence >= 0.65) {
+                signal_result.confidence >= confidence_threshold) {
                 
                 int shares = static_cast<int>(50000 / signal_result.current_price); // $50k per trade
                 engine.get_portfolio().execute_buy(signal_result.current_price, shares, 
                                                  signal_result.confidence, signal_result.reason);
             }
             else if (signal_result.signal == quantlab::strategy::Signal::SELL && 
-                     signal_result.confidence >= 0.65) {
+                     signal_result.confidence >= confidence_threshold) {
                 
                 if (engine.get_portfolio().shares_held > 0) {
                     // Sell $50k worth of shares
