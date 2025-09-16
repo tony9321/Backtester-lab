@@ -2,10 +2,19 @@
 #include <cstdlib>
 #include <iomanip>
 #include <cstring>
+#include <string>
+#include <algorithm>
 #include "../src/strategy/mean_reversion_strategy.hpp"
 #include "../src/backtest/backtest_engine.hpp"
 
-int main() {
+int main(int argc, char* argv[]) {
+    // Parse command line arguments for symbol (default: TSLA)
+    std::string symbol = "TSLA";
+    if (argc > 1) {
+        symbol = argv[1];
+        std::transform(symbol.begin(), symbol.end(), symbol.begin(), ::toupper);
+    }
+    
     // Check if environment variables are already set
     const char* api_key = std::getenv("ALPACA_API_KEY_ID");
     const char* api_secret = std::getenv("ALPACA_API_SECRET_KEY");
@@ -24,10 +33,10 @@ int main() {
 
     try {
         std::cout << "=== PROFESSIONAL MULTI-MINUTE AGGREGATION SYSTEM ===" << std::endl;
-        std::cout << "🚀 ENHANCED TSLA BACKTESTING WITH EXTENDED HISTORICAL DATA" << std::endl;
-        std::cout << "🎯 Target: 60 days (2 months) of daily TSLA data for free plan" << std::endl;
+        std::cout << "🚀 ENHANCED " << symbol << " BACKTESTING WITH EXTENDED HISTORICAL DATA" << std::endl;
+        std::cout << "🎯 Target: 120 days (4+ months) of daily " << symbol << " data for free plan" << std::endl;
         std::cout << "💡 Rate-limited for free plan limits (200 calls/minute)" << std::endl;
-        std::cout << "⏱️  Estimated time: ~20 seconds for comprehensive dataset" << std::endl;
+        std::cout << "⏱️  Estimated time: ~1 minute for comprehensive dataset" << std::endl;
         std::cout << std::endl;
 
         // Initialize components
@@ -42,15 +51,15 @@ int main() {
 
         // Initialize strategy with enhanced aggregation system
         quantlab::strategy::MeanReversionStrategy strategy(client);
-        std::string test_symbol = "TSLA";
+        std::string test_symbol = symbol;
         
         std::cout << "\n🔄 PHASE 1: MULTI-MINUTE DATA AGGREGATION" << std::endl;
         std::cout << "=========================================" << std::endl;
         
-    // Load 120 days of TSLA data using multi-minute aggregation system
+    // Load 120 days of symbol data using multi-minute aggregation system
     std::cout << "🚀 FREE PLAN MULTI-MINUTE AGGREGATION SYSTEM ACTIVATED!" << std::endl;
-    std::cout << "🎯 Target: 120 days of TSLA historical data" << std::endl;
-    strategy.load_aggregated_historical_data("TSLA", "1Day", 120, 1);        std::cout << "\n🧠 PHASE 2: INSTITUTIONAL STRATEGY ANALYSIS" << std::endl;
+    std::cout << "🎯 Target: 120 days of " << symbol << " historical data" << std::endl;
+    strategy.load_aggregated_historical_data(symbol, "1Day", 120, 1);        std::cout << "\n🧠 PHASE 2: INSTITUTIONAL STRATEGY ANALYSIS" << std::endl;
         std::cout << "===========================================" << std::endl;
         
         // Generate professional signal analysis
