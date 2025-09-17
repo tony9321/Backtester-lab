@@ -56,21 +56,40 @@ void BacktestEngine::calculate_final_metrics(double final_price) {
         metrics_.win_rate_pct = (static_cast<double>(metrics_.winning_trades) / completed_trades) * 100.0;
         metrics_.avg_win = (metrics_.winning_trades > 0) ? (total_wins / metrics_.winning_trades) : 0.0;
         metrics_.avg_loss = (metrics_.losing_trades > 0) ? (total_losses / metrics_.losing_trades) : 0.0;
-        metrics_.profit_factor = (total_losses > 0) ? (total_wins / total_losses) : 0.0;
+        
+        // Fix profit factor calculation
+        if (total_losses > 0) {
+            metrics_.profit_factor = total_wins / total_losses;
+        } else if (total_wins > 0) {
+            metrics_.profit_factor = 999.99; // All wins, no losses = very high profit factor
+        } else {
+            metrics_.profit_factor = 0.0; // No wins or losses
+        }
     }
     
-    // Calculate max drawdown from daily values
+    // Calculate max drawdown - simplified version
     metrics_.max_drawdown_pct = 0.0;
-    double peak = metrics_.starting_capital;
     
-    for (double value : portfolio_.daily_values) {
-        if (value > peak) {
-            peak = value;
+    if (!portfolio_.daily_values.empty()) {
+        // Use daily values if available
+        double peak = metrics_.starting_capital;
+        for (double value : portfolio_.daily_values) {
+            if (value > peak) {
+                peak = value;
+            }
+            double drawdown = ((peak - value) / peak) * 100.0;
+            if (drawdown > metrics_.max_drawdown_pct) {
+                metrics_.max_drawdown_pct = drawdown;
+            }
         }
+    } else {
+        // Simplified calculation: assume worst case is starting with all cash
+        // then being fully invested at lowest point
+        double peak_value = std::max(metrics_.starting_capital, metrics_.ending_capital);
+        double current_cash = portfolio_.cash;
         
-        double drawdown = ((peak - value) / peak) * 100.0;
-        if (drawdown > metrics_.max_drawdown_pct) {
-            metrics_.max_drawdown_pct = drawdown;
+        if (peak_value > current_cash && peak_value > 0) {
+            metrics_.max_drawdown_pct = ((peak_value - current_cash) / peak_value) * 100.0;
         }
     }
     
