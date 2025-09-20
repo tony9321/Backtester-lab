@@ -26,6 +26,12 @@ int main(int argc, char* argv[]) {
         confidence_threshold=std::atof(argv[3]);
         if(confidence_threshold<=0.0 || confidence_threshold>1.0) confidence_threshold=0.65; //reset to default if invalid
     }
+    
+    // Additional parameters for strategy configuration
+    int oversold_threshold = 30; // Default RSI oversold threshold
+    int overbought_threshold = 70; // Default RSI overbought threshold
+    if(argc>4) oversold_threshold = std::atoi(argv[4]);
+    if(argc>5) overbought_threshold = std::atoi(argv[5]);
     // Environment variables should be set via .env file or shell
     // No hardcoded credentials for security
 
@@ -45,7 +51,7 @@ int main(int argc, char* argv[]) {
         strategy.set_confidence_threshold(confidence_threshold);
         std::string test_symbol = symbol;
         
-        std::cout << "\n� Loading historical data..." << std::endl;
+        std::cout << "\n📊 Loading historical data..." << std::endl;
         strategy.load_aggregated_historical_data(symbol, "1Day", days, 1);
         
         std::cout << "Analyzing strategy signals..." << std::endl;
@@ -94,17 +100,43 @@ int main(int argc, char* argv[]) {
             }
         }
         
-        std::cout << "Generated " << buy_signals << " BUY, " << sell_signals << " SELL, " << hold_signals << " HOLD signals" << std::endl;
+        // Signal counts calculated silently
         
         // Calculate final metrics using current market price (first signal = most recent)
         double final_price = trade_signals.empty() ? 413.51 : trade_signals.front().current_price;
         engine.calculate_final_metrics(final_price);
         
-        // Show results
-        engine.print_results();
-        engine.print_trade_summary();
+        // Get final metrics
+        const auto& metrics = engine.get_metrics();
+        const auto& portfolio = engine.get_portfolio();
         
-        std::cout << "\nBacktest completed successfully." << std::endl;
+        // Output JSON results for web integration
+        std::cout << "\n{" << std::endl;
+        std::cout << "  \"success\": true,\n";
+        std::cout << "  \"timestamp\": \"" << __DATE__ << "T" << __TIME__ << "\",\n";
+        std::cout << "  \"optimization_results\": [\n";
+        std::cout << "    {\n";
+        std::cout << "      \"symbol\": \"" << symbol << "\",\n";
+        std::cout << "      \"rsi_period_min\": 14,\n";
+        std::cout << "      \"rsi_period_max\": 14,\n";
+        std::cout << "      \"oversold_threshold\": " << oversold_threshold << ",\n";
+        std::cout << "      \"overbought_threshold\": " << overbought_threshold << ",\n";
+        std::cout << "      \"total_return\": " << std::fixed << std::setprecision(4) << (metrics.total_return_pct / 100.0) << ",\n";
+        std::cout << "      \"total_return_pct\": " << std::fixed << std::setprecision(2) << metrics.total_return_pct << ",\n";
+        std::cout << "      \"max_drawdown\": " << std::fixed << std::setprecision(4) << (-metrics.max_drawdown_pct / 100.0) << ",\n";
+        std::cout << "      \"sharpe_ratio\": " << std::fixed << std::setprecision(4) << metrics.sharpe_ratio << ",\n";
+        std::cout << "      \"total_trades\": " << metrics.total_trades << ",\n";
+        std::cout << "      \"winning_trades\": " << metrics.winning_trades << ",\n";
+        std::cout << "      \"win_rate\": " << std::fixed << std::setprecision(2) << metrics.win_rate_pct << ",\n";
+        std::cout << "      \"profit_factor\": " << std::fixed << std::setprecision(2) << metrics.profit_factor << "\n";
+        std::cout << "    }\n";
+        std::cout << "  ],\n";
+        std::cout << "  \"summary\": {\n";
+        std::cout << "    \"total_combinations\": 1,\n";
+        std::cout << "    \"best_return\": " << std::fixed << std::setprecision(4) << (metrics.total_return_pct / 100.0) << ",\n";
+        std::cout << "    \"avg_trades\": " << metrics.total_trades << "\n";
+        std::cout << "  }\n";
+        std::cout << "}" << std::endl;
         
         return 0;
         
