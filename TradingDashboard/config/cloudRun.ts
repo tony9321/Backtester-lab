@@ -14,7 +14,7 @@ export const CLOUD_RUN_CONFIG = {
   },
   
   // Request configuration
-  DEFAULT_TIMEOUT: 300000, // 5 minutes for optimization requests
+  DEFAULT_TIMEOUT: 900000, // 15 minutes for optimization requests
   MAX_RETRIES: 3
 };
 

@@ -87,21 +87,38 @@ std::string AlpacaClient::make_request(const std::string& endpoint, bool use_mar
     // Choose the correct base URL
     std::string base_url = use_market_data_api ? market_data_base_url_ : trading_base_url_;
     std::string url = base_url + endpoint;
-    
-    auto response = cpr::Get(
-        cpr::Url{url}, 
-        cpr::Header{
-            {"APCA-API-KEY-ID", api_key_}, 
-            {"APCA-API-SECRET-KEY", api_secret_}
+
+    int retry_count = 0;
+    const int max_retries = 5;
+    const int base_delay_ms = 1000; // 1 second
+
+    while (retry_count <= max_retries) {
+        auto response = cpr::Get(
+            cpr::Url{url}, 
+            cpr::Header{
+                {"APCA-API-KEY-ID", api_key_}, 
+                {"APCA-API-SECRET-KEY", api_secret_}
+            }
+        );
+
+        if (response.status_code == 200) {
+            return response.text;
+        } else if (response.status_code == 429) {
+            // Handle rate limit with exponential backoff and jitter
+            int backoff_time = base_delay_ms * (1 << retry_count); // Exponential backoff
+            backoff_time += rand() % 500; // Add jitter (0-500ms)
+            std::cerr << "Rate limit hit. Retrying in " << backoff_time << " ms..." << std::endl;
+            std::this_thread::sleep_for(std::chrono::milliseconds(backoff_time));
+            retry_count++;
+        } else {
+            std::cerr << "HTTP Error " << response.status_code << " for URL: " << url << std::endl;
+            std::cerr << "Response: " << response.text << std::endl;
+            return "";
         }
-    );
-    
-    if (response.status_code != 200) {
-        std::cerr << "HTTP Error " << response.status_code << " for URL: " << url << std::endl;
-        std::cerr << "Response: " << response.text << std::endl;
-        return "";
     }
-    return response.text;
+
+    std::cerr << "Max retries reached for URL: " << url << std::endl;
+    return "";
 }
 
 // METHOD 1: Test Connection
