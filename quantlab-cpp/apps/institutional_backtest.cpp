@@ -1,3 +1,5 @@
+#include <vector>
+#include <sstream>
 #include <iostream>
 #include <cstdlib>
 #include <iomanip>
@@ -8,6 +10,14 @@
 #include "../src/backtest/backtest_engine.hpp"
 
 int main(int argc, char* argv[]) {
+    struct TradeAction {
+        std::string type;
+        double price;
+        int shares;
+        double confidence;
+        std::string reason;
+    };
+    std::vector<TradeAction> trade_actions;
     // Parse command line arguments for symbol (default: TSLA)
     std::string symbol = "TSLA";
     if (argc > 1) {
@@ -78,24 +88,25 @@ int main(int argc, char* argv[]) {
             if (signal_result.signal == quantlab::strategy::Signal::BUY) buy_signals++;
             else if (signal_result.signal == quantlab::strategy::Signal::SELL) sell_signals++;
             else hold_signals++;
-            
             // Execute trades with configurable confidence threshold
             if (signal_result.signal == quantlab::strategy::Signal::BUY && 
                 signal_result.confidence >= confidence_threshold) {
-                
                 int shares = static_cast<int>(50000 / signal_result.current_price); // $50k per trade
                 engine.get_portfolio().execute_buy(signal_result.current_price, shares, 
                                                  signal_result.confidence, signal_result.reason);
+                // Collect trade action
+                trade_actions.push_back({"BUY", signal_result.current_price, shares, signal_result.confidence, signal_result.reason});
             }
             else if (signal_result.signal == quantlab::strategy::Signal::SELL && 
                      signal_result.confidence >= confidence_threshold) {
-                
                 if (engine.get_portfolio().shares_held > 0) {
                     // Sell $50k worth of shares
                     int shares_to_sell = static_cast<int>(50000 / signal_result.current_price);
                     int shares = std::min(shares_to_sell, engine.get_portfolio().shares_held);
                     engine.get_portfolio().execute_sell(signal_result.current_price, shares,
                                                        signal_result.confidence, signal_result.reason);
+                    // Collect trade action
+                    trade_actions.push_back({"SELL", signal_result.current_price, shares, signal_result.confidence, signal_result.reason});
                 }
             }
         }
@@ -128,7 +139,18 @@ int main(int argc, char* argv[]) {
         std::cout << "      \"total_trades\": " << metrics.total_trades << ",\n";
         std::cout << "      \"winning_trades\": " << metrics.winning_trades << ",\n";
         std::cout << "      \"win_rate\": " << std::fixed << std::setprecision(2) << metrics.win_rate_pct << ",\n";
-        std::cout << "      \"profit_factor\": " << std::fixed << std::setprecision(2) << metrics.profit_factor << "\n";
+        std::cout << "      \"profit_factor\": " << std::fixed << std::setprecision(2) << metrics.profit_factor << ",\n";
+        // Output trade actions as JSON array
+        std::cout << "      \"trade_actions\": [";
+        for (size_t i = 0; i < trade_actions.size(); ++i) {
+            const auto& t = trade_actions[i];
+            std::cout << (i > 0 ? ",\n" : "\n");
+            std::cout << "        {\"type\": \"" << t.type << "\", \"price\": " << std::fixed << std::setprecision(2) << t.price
+                      << ", \"shares\": " << t.shares << ", \"confidence\": " << std::fixed << std::setprecision(2) << t.confidence
+                      << ", \"reason\": \"" << t.reason << "\"}";
+        }
+        if (!trade_actions.empty()) std::cout << "\n      ";
+        std::cout << "]\n";
         std::cout << "    }\n";
         std::cout << "  ],\n";
         std::cout << "  \"summary\": {\n";

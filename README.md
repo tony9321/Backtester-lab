@@ -2,7 +2,7 @@
 
 A quantitative finance learning laboratory for algorithmic trading, technical indicators, and backtesting strategies.
 
-## 🎯 What This Is
+## What This Is
 
 This repository contains implementations and experiments in quantitative finance, starting with a C++ high-performance backtesting engine and technical indicator library.
 
@@ -22,9 +22,9 @@ A production-ready C++ library implementing:
 - **Strategy Framework:** Composable signals and backtesting engine
 - **Market Data:** Alpaca API integration for historical and live data
 
-**[📚 Detailed Learning Guide →](./quantlab-cpp/README.md)**
+**[Detailed Learning Journey](./quantlab-cpp/README.md)**
 
-## 🚀 Getting Started
+## Getting Started
 
 1. **Prerequisites:** Modern C++ compiler (C++20), CMake 3.20+
 2. **Clone and build:**
@@ -45,9 +45,3 @@ A production-ready C++ library implementing:
 3. **[Technical Indicators](./quantlab-cpp/README.md#-technical-indicators-mathematics)** - EMA, RSI, Bollinger Bands implementation
 4. **[Strategy Development](./quantlab-cpp/README.md#-project-architecture)** - Combine indicators into trading signals
 5. **[Backtesting & Validation](./quantlab-cpp/README.md#-testing-and-validation)** - Realistic simulation with costs
-
-## ⚠️ Disclaimer
-
-This is an educational project for learning quantitative finance concepts. All strategies and indicators are for learning purposes only. Trading involves risk of loss.
-
----

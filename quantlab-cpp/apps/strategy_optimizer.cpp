@@ -350,12 +350,49 @@ int main(int argc, char* argv[]) {
         // Initialize optimizer
         quantlab::optimization::StrategyOptimizer optimizer(client);
         
-        // Define focused parameter ranges for web-friendly testing
-        std::vector<std::string> symbols = {"AAPL"};  // Focus on 1 symbol for validation
-        std::vector<int> days_range = {60, 120, 365};         // 3 meaningful time periods
-        std::vector<double> confidence_range = {0.5, 0.65, 0.8}; // 3 confidence levels
-        
-        // Build parameter grid (1 * 3 * 3 = 9 combinations)
+        // Accept parameters from command line or use defaults
+        std::vector<std::string> symbols;
+        std::vector<int> days_range = {60, 120, 365};
+        std::vector<double> confidence_range = {0.5, 0.65, 0.8};
+
+        // Parse symbol(s) from command line
+        if (argc > 1) {
+            std::string arg_symbols = argv[1];
+            size_t pos = 0;
+            while ((pos = arg_symbols.find(',')) != std::string::npos) {
+                symbols.push_back(arg_symbols.substr(0, pos));
+                arg_symbols.erase(0, pos + 1);
+            }
+            if (!arg_symbols.empty()) symbols.push_back(arg_symbols);
+        } else {
+            symbols = {"AAPL"};
+        }
+
+        // Optionally override days_range from command line (comma-separated)
+        if (argc > 2) {
+            days_range.clear();
+            std::string arg_days = argv[2];
+            size_t pos = 0;
+            while ((pos = arg_days.find(',')) != std::string::npos) {
+                days_range.push_back(std::stoi(arg_days.substr(0, pos)));
+                arg_days.erase(0, pos + 1);
+            }
+            if (!arg_days.empty()) days_range.push_back(std::stoi(arg_days));
+        }
+
+        // Optionally override confidence_range from command line (comma-separated)
+        if (argc > 3) {
+            confidence_range.clear();
+            std::string arg_conf = argv[3];
+            size_t pos = 0;
+            while ((pos = arg_conf.find(',')) != std::string::npos) {
+                confidence_range.push_back(std::stod(arg_conf.substr(0, pos)));
+                arg_conf.erase(0, pos + 1);
+            }
+            if (!arg_conf.empty()) confidence_range.push_back(std::stod(arg_conf));
+        }
+
+        // Build parameter grid with user or default values
         optimizer.build_parameter_grid(symbols, days_range, confidence_range);
         
         // Run optimization

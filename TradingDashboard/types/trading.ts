@@ -1,3 +1,10 @@
+export interface TradeAction {
+  type: 'BUY' | 'SELL';
+  price: number;
+  shares: number;
+  confidence: number;
+  reason: string;
+}
 export interface OptimizationParameters {
   symbol: string;
   days: number; // Days back from today (matches C++ backend logic)
@@ -9,6 +16,7 @@ export interface OptimizationParameters {
 }
 
 export interface OptimizationResult {
+  trade_actions?: TradeAction[];
   symbol: string;
   rsi_period_min: number;
   rsi_period_max: number;
