@@ -62,26 +62,22 @@ struct Portfolio {
             cash -= cost;
             shares_held += shares;
             last_buy_price = price;
+            
             trade_history.push_back({
                 "timestamp", "BUY", price, shares, cost, confidence, reason
             });
-            // Print trade details to terminal
-            std::cout << "[BUY] " << shares << " shares @ $" << price << " (Total: $" << cost << ")"
-                      << " | Confidence: " << confidence << " | Reason: " << reason << std::endl;
         }
     }
-
+    
     void execute_sell(double price, int shares, double confidence, const std::string& reason) {
         if (shares_held >= shares) {
             double proceeds = price * shares;
             cash += proceeds;
             shares_held -= shares;
+            
             trade_history.push_back({
                 "timestamp", "SELL", price, shares, proceeds, confidence, reason
             });
-            // Print trade details to terminal
-            std::cout << "[SELL] " << shares << " shares @ $" << price << " (Total: $" << proceeds << ")"
-                      << " | Confidence: " << confidence << " | Reason: " << reason << std::endl;
         }
     }
 };

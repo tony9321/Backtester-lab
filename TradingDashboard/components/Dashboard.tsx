@@ -16,8 +16,7 @@ import OptimizationCard from './OptimizationCard';
 import MetricsChart from './MetricsChart';
 import ParameterControls from './ParameterControls';
 import TerminalOutput from './TerminalOutput';
-import TradeLog from './TradeLog';
-import { OptimizationParameters, TradeAction } from '../types/trading';
+import { OptimizationParameters } from '../types/trading';
 
 interface DashboardProps {
   // Future props for user settings, etc.
@@ -32,26 +31,21 @@ const Dashboard: React.FC<DashboardProps> = () => {
   const [selectedMetric, setSelectedMetric] = useState<'return' | 'drawdown' | 'sharpe'>('return');
   const [isOptimizationRunning, setIsOptimizationRunning] = useState(false);
 
-  // Load results from localStorage on mount
   useEffect(() => {
-    const savedResults = localStorage.getItem('optimizationResults');
-    const savedTerminal = localStorage.getItem('terminalOutput');
-    if (savedResults) setResults(JSON.parse(savedResults));
-    if (savedTerminal) setTerminalOutput(savedTerminal);
-
+    loadOptimizationResults();
+    
     // Set up results listener for Cloud Run API
     const unsubscribe = OptimizationService.subscribeToResults((newResults, newTerminalOutput) => {
       setResults(newResults);
       setTerminalOutput(newTerminalOutput);
       setLoading(false);
-      // Save to localStorage
-      localStorage.setItem('optimizationResults', JSON.stringify(newResults));
-      localStorage.setItem('terminalOutput', newTerminalOutput);
+      
       // Auto-show terminal when new results come in
       if (newTerminalOutput && newTerminalOutput.length > 0) {
         setShowTerminal(true);
       }
     });
+
     return () => unsubscribe();
   }, []);
 
@@ -81,11 +75,10 @@ const Dashboard: React.FC<DashboardProps> = () => {
     try {
       setIsOptimizationRunning(true);
       setLoading(true);
+      
       const optimizationResults = await OptimizationService.runOptimization(params);
+      
       setResults(optimizationResults);
-      // Save to localStorage
-      localStorage.setItem('optimizationResults', JSON.stringify(optimizationResults));
-      localStorage.setItem('terminalOutput', terminalOutput);
       Alert.alert('Success', `Optimization completed with ${optimizationResults.length} results`);
     } catch (error) {
       Alert.alert('Error', 'Failed to run optimization');
@@ -112,7 +105,7 @@ const Dashboard: React.FC<DashboardProps> = () => {
     }));
   };
 
-  if (loading && results.length === 0 && !terminalOutput) {
+  if (loading && results.length === 0) {
     return (
       <LinearGradient
         colors={['#1e3c72', '#2a5298']}
@@ -124,7 +117,7 @@ const Dashboard: React.FC<DashboardProps> = () => {
     );
   }
 
-  const bestResult = results.length > 0 ? getBestResult() : null;
+  const bestResult = getBestResult();
 
   return (
     <LinearGradient colors={['#1e3c72', '#2a5298']} style={styles.container}>
@@ -153,8 +146,8 @@ const Dashboard: React.FC<DashboardProps> = () => {
           onToggle={() => setShowTerminal(!showTerminal)}
         />
 
-        {/* Best Performance Card & Trade Log */}
-        {bestResult ? (
+        {/* Best Performance Card */}
+        {bestResult && (
           <View style={styles.bestResultCard}>
             <Text style={styles.bestResultTitle}>🏆 Best Performance</Text>
             <View style={styles.bestResultContent}>
@@ -170,11 +163,7 @@ const Dashboard: React.FC<DashboardProps> = () => {
                 {bestResult.total_trades} trades • {bestResult.win_rate.toFixed(1)}% win rate
               </Text>
             </View>
-            {/* Trade Log for best result */}
-            <TradeLog tradeActions={bestResult.trade_actions || []} />
           </View>
-        ) : (
-          <Text style={{ color: 'white', marginBottom: 10 }}>No optimization results yet. Run a simulation to see results.</Text>
         )}
 
         {/* Metric Selection */}
@@ -209,13 +198,9 @@ const Dashboard: React.FC<DashboardProps> = () => {
         {/* Results Grid */}
         <View style={styles.resultsGrid}>
           <Text style={styles.sectionTitle}>📊 All Results</Text>
-          {results.length > 0 ? (
-            results.map((result, index) => (
-              <OptimizationCard key={index} result={result} />
-            ))
-          ) : (
-            <Text style={{ color: 'white', marginTop: 10 }}>No data available. Run a simulation to see results.</Text>
-          )}
+          {results.map((result, index) => (
+            <OptimizationCard key={index} result={result} />
+          ))}
         </View>
 
         {/* Refresh Button */}
